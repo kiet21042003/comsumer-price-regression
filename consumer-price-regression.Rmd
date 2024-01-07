@@ -1,0 +1,1209 @@
+---
+title: "Consumer spending regression"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Team member:
+
+- Trần Minh Quân 20203233
+
+- Lê Bá Đức 20203208
+
+- Mai Đức Huy 20203217
+
+- Giang Thị Thanh Huyền 20223489
+
+- Trương Thị Thu Thảo 20223527
+
+# <a id='0'> Introduction</a>
+
+The data set includes data from a direct marketer who sells his products only via direct mail. He sends catalogs with product characteristics to customers who then order directly from the catalogs. The marketer has developed customer records to learn what makes some customers spend more than others.
+
+The objective of this predictive modeling exercise is to predict the amount that will be spent in terms of the provided customer characteristics for a direct marketer who sells his products via mail. This analysis will be useful for the marketer to make strategic decisions about advertising and targetting a selected group of potential customers based on the amount that they are predicted to spend in the future.
+
+The dataset `DirectMarketing.csv` contains 1000 records and 18 attributes. But only the first 10 columns are significant, 8 remaining columns are just one-hot encoded attributes from the first 10 row. As one-hot encoding is only used for linear regression part, so we decided to remove 8 last rows in Exploratory Data Analysis part for better speed.
+
+# Table of contents
+<a href='#0'>0. Introduction </a> <br>
+<a href='#1'>1. Importing Libraries </a> <br>
+<a href='#2'>2. Data </a> <br>
+<a href='#3'>3. Exploratory Data Analysis </a> <br>
+- <a href='#4'>3.1 Missing Value </a> <br> 
+- <a href='#5'>3.2 Correlation Matrix </a> <br>
+- <a href='#6'>3.3 Describe Function </a> <br>
+
+<a href='#7'>4. Data Analysis </a> <br>
+- <a href='#8'>4.1 Age </a> <br>
+- <a href='#9'>4.2 Gender </a> <br>
+- <a href='#10'>4.3 Own Home </a> <br>
+- <a href='#11'>4.4 Married </a> <br>
+- <a href='#12'>4.5 Location </a> <br>
+- <a href='#13'>4.6 Children </a> <br>
+- <a href='#14'>4.7 History </a> <br>
+- <a href='#15'>4.8 Catalogs  </a> <br>
+- <a href='#16'>4.9 Amount Spent </a> <br>
+- <a href='#17'>4.10 Salary  </a> <br>
+
+
+<a href='#20'>5. Data Summary</a> <br>
+<a href='#21'>6. Some regressions </a> <br>
+<a href='#30'>7. Conclusion </a> <br>
+
+
+# <a id='1'> 1. Importing Libraries</a>
+```{r}
+# Install Tidyverse for data manipulation and visualization
+install.packages("tidyverse")
+
+# Install MASS for statistical functions
+install.packages("MASS")
+
+# Install glmnet for Lasso and Ridge regression
+install.packages("glmnet")
+
+# Install boot for bootstrapping methods
+install.packages("boot")
+
+# Install locfit for local regression
+install.packages("locfit")
+
+# Install caret for machine learning modeling
+install.packages("caret")
+
+# Install corrplot for correlation plot visualization
+install.packages("corrplot")
+
+# Install ggplot2 for advanced data visualization
+install.packages("ggplot2")
+
+# Install reshape2 for data reshaping
+install.packages("reshape2")
+
+# Install dplyr for data manipulation
+install.packages("dplyr")
+
+# Install plotly for interactive plots
+install.packages("plotly")
+
+# Install gridExtra for customizing plot layouts
+install.packages("gridExtra")
+
+install.packages("Hmisc")
+```
+
+```{r}
+library(tidyverse)
+library(MASS)
+library(glmnet)
+library(boot)
+library(locfit)
+library(caret)
+library(corrplot)
+library(glmnet)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(plotly)
+library(gridExtra)
+```
+
+# <a id='2'> 2. Data</a>
+
+Load the data and look at its dimansions.
+
+
+```{r}
+d_dimar <- read.csv('DirectMarketing.csv')
+dim(d_dimar)
+```
+
+Look at the first few rows to get to know the contents.
+
+
+```{r}
+head(d_dimar)
+```
+
+**Now we gonna take only first 10 columns for data analysis**
+
+
+```{r}
+d_mar <- d_dimar[, 1:10]
+dim(d_mar)
+```
+
+
+```{r}
+head(d_mar)
+```
+
+We have 3 numerical features and 6 categorical features. Now we move to data analysis part. 
+
+ # <a id='3'> 3.Exploratory Data Analysis</a>
+  * Exploratory Data Analysis refers to the critical process of performing 
+initial investigations on data so as to discover patterns,to spot anomalies, 
+to test hypothesis and to check assumptions with
+the help of summary statistics and graphical representations. <br>
+
+* Your goal during EDA is to develop an understanding of your data. The easiest way to do this is to use questions as tools to guide your investigation. When you ask a question, the question focuses your attention on a specific part of your dataset and helps you decide which graphs, models, or transformations to make.<br>
+
+* Generate questions about your data.<br>
+
+* Search for answers by visualising, transforming, and modelling your data. <br>
+
+* Use what you learn to refine your questions and/or generate new questions. <br>
+
+* EDA is not a formal process with a strict set of rules.<br> 
+* More than anything, EDA  is a state of mind.<br> 
+* During the initial phases of EDA you should feel free to investigate every idea that occurs to you.<br> 
+* Some of these ideas will pan out, and some will be dead ends.<br>
+* As your exploration continues, you will home in on a few particularly productive areas that you’ll eventually write up and communicate to others.<br>
+
+### Let's start exploring our data
+
+
+```{r}
+duplicates <- d_mar[duplicated(d_mar), ]
+duplicates
+```
+
+*We don't have duplicated data*
+
+## <a id='4'> 3.1 Missing Value</a>
+
+
+
+```{r}
+any(is.na(d_mar))
+```
+
+
+```{r}
+colSums(is.na(d_mar))
+```
+
+In this step, we add another level to the History columns and replace the missing values with 'Never' to represent the customers who have not yet purchased and print out the levels.
+
+
+```{r}
+levs <- levels(d_mar$History)
+levs[length(levs)+1] <- "Never"
+d_mar$History <- factor(d_mar$History, levels=levs)
+d_mar$History[is.na(d_mar$History)] <- "Never"
+d_mar$History <- ordered(d_mar$History, levels=c("Never", "Low", "Medium", "High"))
+print('After replacing missing values NA with Never:')
+levels(d_mar$History)
+```
+
+Look at the distribution of customers according to History
+
+
+```{r}
+table(d_mar$History)
+```
+
+## <a id='5'>3.2 Correlation Matrix </a>
+
+* A correlation matrix is a table showing correlation coefficients between variables. Each cell in the table shows the correlation between two variables.<br>
+
+
+```{r}
+numeric_columns <- sapply(d_dimar, is.numeric)
+corr_matrix <- cor(d_dimar[, numeric_columns], use = "complete.obs")
+corr_matrix
+```
+
+
+```{r}
+# Melt the correlation matrix for ggplot
+melted_corr_matrix <- melt(corr_matrix)
+
+# Create the heatmap plot and assign it to a variable
+heatmap_plot <- ggplot(data = melted_corr_matrix, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12)) +
+  labs(x = '', y = '', title = 'Correlation Matrix') +
+  geom_text(aes(label = sprintf("%.2f", value)), vjust = 1, size = 3)
+
+# Print the plot with larger dimensions
+print(heatmap_plot)
+
+# Save the plot with larger dimensions
+ggsave("heatmap_plot.png", plot = heatmap_plot, width = 10, height = 8, dpi = 300)
+
+```
+
+## <a id='6'> 3.3 Describe Function</a>
+* Generate descriptive statistics.<br>
+* This function returns the **count**, **mean**, **standard deviation**,
+* **minimum**, **maximum** **values** and the **quantiles of the data**.<br>
+
+
+```{r}
+summary(d_mar)
+```
+
+Take a look at the structure of our data frame, looks good for a linear regression model.
+
+
+```{r}
+str(d_mar)
+```
+
+## <a id='7'> 4.Data Analysis </a>
+
+## <a id='8'> 4.1 Age </a>
+* How is the age distribution ?
+
+
+```{r}
+d_mar_Age <- d_mar %>%
+  count(Age) %>%
+  rename(count = n)
+d_mar_Age
+```
+
+* Most of the customers are in the middle age group
+
+
+```{r}
+fig <- plot_ly(d_mar_Age, labels = ~Age, values = ~count, type = 'pie', hole = 0.4) %>%
+  layout(title = 'Age Distribution', xaxis = list(title = 'Age'), yaxis = list(title = 'Count'))
+fig
+
+```
+
+
+```{r}
+fig <- plot_ly(d_mar_Age, x = ~Age, y = ~count, type = 'bar', marker = list(colorscale = 'Viridis')) %>%
+  layout(title = 'Age Distribution', xaxis = list(title = 'Age'), yaxis = list(title = 'Count'))
+fig
+
+```
+
+* How much is the average salary,amount spent by age?
+
+
+```{r}
+d_mar_Age_Salary <- d_mar %>% group_by(Age) %>% summarise(AVG_Salary = round(mean(Salary, na.rm = TRUE), 2))
+d_mar_Age_AmountSpent <- d_mar %>% group_by(Age) %>% summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+result <- merge(d_mar_Age_Salary, d_mar_Age_AmountSpent, by = "Age")
+result
+
+```
+
+
+```{r}
+fig <- subplot(
+  plot_ly(result, x = ~Age, y = ~AVG_Salary, type = 'bar', name = 'Mean Salary', marker = list(colorscale = 'fall')),
+  plot_ly(result, x = ~Age, y = ~AVG_AmountSpent, type = 'bar', name = 'Mean Amount Spent', marker = list(colorscale = 'fall')),
+  nrows = 2
+) %>% layout(title = 'Age', xaxis = list(title = 'Age'), yaxis = list(title = 'Value'))
+fig
+
+```
+
+* Middle age group earns more and spends more
+
+
+```{r}
+# Plot 1: Mean Salary
+p1 <- ggplot(result, aes(x = Age, y = AVG_Salary, fill = AVG_Salary)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradientn(colours = rainbow(4)) +
+  labs(title = "Age AVG Salary", x = "Age", y = "AVG Salary") +
+  theme_minimal()
+
+# Plot 2: Mean Amount Spent
+p2 <- ggplot(result, aes(x = Age, y = AVG_AmountSpent, fill = AVG_AmountSpent)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradientn(colours = rainbow(4)) +
+  labs(title = "Age AVG Amount Spent", x = "Age", y = "AVG Amount Spent") +
+  theme_minimal()
+
+# Combine plots
+grid.arrange(p1, p2, nrow = 2)
+```
+
+
+```{r}
+# Scatter plot with trendline
+p <- ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = as.factor(Age))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = 'Age With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent', color = 'Age')
+
+print(p)
+```
+
+## Summary
+* Most of the customers are in the middle age group
+* Middle age group earns more and spends more
+
+## <a id='9'> 4.2 Gender </a>
+* How is the gender distribution ?
+
+
+```{r}
+d_mar_Gender <- d_mar %>%
+  count(Gender) %>%
+  rename(count = n)
+d_mar_Gender
+```
+
+* Gender distribution is balanced
+
+
+```{r}
+fig <- plot_ly(d_mar_Gender, x = ~Gender, y = ~count, type = 'bar', marker = list(color = ~count, colorscale = 'Viridis'), text = ~count, textposition = 'outside') %>%
+  layout(title = 'Gender Distribution', xaxis = list(title = 'Gender'), yaxis = list(title = 'Count'))
+fig
+```
+
+* How much is the average salary, amount spent by Gender
+
+
+```{r}
+# Calculate average salary and amount spent by gender
+d_mar_Gender_Salary <- d_mar %>%
+  group_by(Gender) %>%
+  summarise(AVG_Salary = round(mean(Salary, na.rm = TRUE), 2))
+
+d_mar_Gender_AmountSpent <- d_mar %>%
+  group_by(Gender) %>%
+  summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+# Combine the two data frames
+result <- merge(d_mar_Gender_Salary, d_mar_Gender_AmountSpent, by = "Gender")
+
+# Create individual plots
+plot1 <- ggplot(result, aes(x = Gender, y = AVG_Salary, fill = Gender)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Gender AVG Salary", x = "Gender", y = "Average Salary") +
+  theme_minimal()
+
+plot2 <- ggplot(result, aes(x = Gender, y = AVG_AmountSpent, fill = Gender)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Gender AVG Amount Spent", x = "Gender", y = "Average Amount Spent") +
+  theme_minimal()
+
+# Combine plots into a single figure with subplots
+grid.arrange(plot1, plot2, nrow = 2)
+```
+
+* Men earn more and spend more
+
+
+```{r}
+# Scatter plot with trendline
+ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = Gender)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model trendline without confidence interval
+  scale_color_brewer(palette = "Set1") +    # Color by Gender
+  labs(title = 'Gender With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent') +
+  theme_minimal()
+```
+
+* How is the age distribution by gender?
+
+
+```{r}
+d_mar_G_and_A <- d_mar %>%
+  count(Gender, Age) %>%
+  rename(count = n)
+d_mar_G_and_A
+
+```
+
+* The highest number of customers is middle age men
+* Lowest number of customers older men
+
+
+```{r}
+d_mar_G_and_A <- d_mar %>%
+  group_by(Gender, Age) %>%
+  summarise(count = n())
+ggplot(d_mar_G_and_A, aes(x = Age, y = count, fill = Gender)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Age Count With Gender", x = "Age", y = "Count") +
+  theme_minimal()
+```
+
+* How much is the average(min,max) spending amount of customers by gender,age?
+
+
+
+```{r}
+d_mar_G_and_A <- d_mar %>%
+  group_by(Gender, Age) %>%
+  summarise(AVG_AmountSpent = mean(AmountSpent, na.rm = TRUE)) %>%
+  mutate(AVG_AmountSpent = round(AVG_AmountSpent, 2))
+d_mar_G_and_A
+
+```
+
+Highest average spending:**Male**	**Old** 1691 <br>
+Lowest average spending: **Female**	**Young** 501 <br>
+
+
+```{r}
+# Calculating various statistics by Gender and Age
+d_mar_G_and_A_AVG <- d_mar %>% 
+  group_by(Gender, Age) %>% 
+  summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+d_mar_G_and_A_Max <- d_mar %>% 
+  group_by(Gender, Age) %>% 
+  summarise(Max_AmountSpent = max(AmountSpent, na.rm = TRUE))
+
+d_mar_G_and_A_Min <- d_mar %>% 
+  group_by(Gender, Age) %>% 
+  summarise(Min_AmountSpent = min(AmountSpent, na.rm = TRUE))
+
+d_mar_G_and_A_Count <- d_mar %>% 
+  group_by(Gender, Age) %>% 
+  summarise(Count = n())
+
+# Merging the data frames
+result <- reduce(list(d_mar_G_and_A_AVG, d_mar_G_and_A_Max, d_mar_G_and_A_Min, d_mar_G_and_A_Count), full_join, by = c("Gender", "Age"))
+result
+```
+
+
+```{r}
+
+# Reshape the data from wide to long format for faceting
+long_result <- result %>%
+  gather(key = "Statistic", value = "Value", AVG_AmountSpent, Min_AmountSpent, Max_AmountSpent, Count)
+
+# Create the plot
+ggplot(long_result, aes(x = paste(Gender, Age), y = Value, fill = Statistic)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  facet_wrap(~ Statistic, scales = "free_y", ncol = 1) +
+  theme_minimal() +
+  labs(title = "Gender Age With Amount Spent", x = "Gender and Age", y = "Value") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+```
+
+## Summary
+* Gender distribution is balanced
+* Men earn more and spend more
+
+* The highest number of customers is middle age men
+* Lowest number of customers older men
+
+* Highest average spending:Male Old 1691
+* Lowest average spending: Female Young 501
+
+* Highest average Salary:Male Middle 76.3 k
+* Lowest average Salary: Female Young 25.5 k
+
+## <a id='10'> 4.3 OwnHome </a>
+* How is the OwnHome  distribution ?
+
+
+```{r}
+d_mar_OwnHome <- d_mar %>%
+  count(OwnHome) %>%
+  rename(count = n)
+d_mar_OwnHome
+```
+
+
+```{r}
+# Assuming d_mar_OwnHome is already created and contains 'OwnHome' and 'count' columns
+fig <- plot_ly(d_mar_OwnHome, labels = ~OwnHome, values = ~count, type = 'pie', marker = list(colors = c('darkblue', 'darkcyan'))) %>%
+  layout(title = 'Own Home Count')
+fig
+```
+
+* OwnHome distribution is balanced
+
+* What are the customers' average income and expenses by OwnHome?
+
+
+```{r}
+# Calculate average salary and amount spent by OwnHome
+d_mar_OwnHome_Salary <- d_mar %>%
+  group_by(OwnHome) %>%
+  summarise(AVG_Salary = round(mean(Salary, na.rm = TRUE), 2))
+
+d_mar_OwnHome_AmountSpent <- d_mar %>%
+  group_by(OwnHome) %>%
+  summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+# Combine the data
+result <- merge(d_mar_OwnHome_Salary, d_mar_OwnHome_AmountSpent, by = "OwnHome")
+
+# Plotting using ggplot2 and gridExtra
+plot1 <- ggplot(result, aes(x = OwnHome, y = AVG_Salary, fill = OwnHome)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Own Home AVG Salary", x = "Own Home", y = "Average Salary") +
+  theme_minimal()
+
+plot2 <- ggplot(result, aes(x = OwnHome, y = AVG_AmountSpent, fill = OwnHome)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Own Home AVG Amount Spent", x = "Own Home", y = "Average Amount Spent") +
+  theme_minimal()
+
+library(gridExtra)
+grid.arrange(plot1, plot2, nrow = 2)
+
+```
+
+* Homeowners earn more and spend more
+
+
+```{r}
+ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = OwnHome)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model trendline
+  scale_color_brewer(palette = "Set1") +    # Color by OwnHome
+  labs(title = 'Own Home With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent') +
+  theme_minimal()
+
+```
+
+## Summary
+* OwnHome distribution is balanced
+* Homeowners earn more and spend more
+
+## <a id='11'> 4.4 Married </a>
+* How is the Married distribution ?
+
+
+```{r}
+d_mar_Married <- d_mar %>%
+  count(Married) %>%
+  rename(count = n)
+
+fig <- plot_ly(d_mar_Married, labels = ~Married, values = ~count, type = 'pie', marker = list(colors = c('darkblue', 'darkcyan'))) %>%
+  layout(title = 'Married Count')
+fig
+```
+
+* Married distribution is balanced
+
+
+```{r}
+# Calculating average salary and amount spent by Married status
+d_mar_Married_Salary <- d_mar %>%
+  group_by(Married) %>%
+  summarise(AVG_Salary = round(mean(Salary, na.rm = TRUE), 2))
+
+d_mar_Married_AmountSpent <- d_mar %>%
+  group_by(Married) %>%
+  summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+# Combine the data
+result <- merge(d_mar_Married_Salary, d_mar_Married_AmountSpent, by = "Married")
+
+# Plotting using ggplot2 and gridExtra
+plot1 <- ggplot(result, aes(x = Married, y = AVG_Salary, fill = Married)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Married AVG Salary", x = "Married", y = "Average Salary") +
+  theme_minimal()
+
+plot2 <- ggplot(result, aes(x = Married, y = AVG_AmountSpent, fill = Married)) + 
+  geom_bar(stat = "identity") +
+  labs(title = "Married AVG Amount Spent", x = "Married", y = "Average Amount Spent") +
+  theme_minimal()
+
+grid.arrange(plot1, plot2, nrow = 2)
+```
+
+* Married people earn more and spend more
+
+
+```{r}
+ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = Married)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model trendline
+  scale_color_brewer(palette = "Set1") +    # Color by Married status
+  labs(title = 'Married With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent') +
+  theme_minimal()
+
+```
+
+## Summary
+* Married distribution is balanced
+* Married people earn more and spend more
+
+## <a id='12'> 4.5 Location </a>
+> How is the Location distribution ?
+
+
+```{r}
+d_mar_Location <- d_mar %>%
+  count(Location) %>%
+  rename(count = n)
+
+ggplot(d_mar_Location, aes(x = Location, y = count, fill = count)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis_c() +
+  labs(title = "Location Distribution", x = "Location", y = "Count") +
+  theme_minimal() +
+  geom_text(aes(label = count), vjust = -0.5)
+```
+
+
+```{r}
+# Boxplot for Salary by Location
+plot_salary <- ggplot(d_mar, aes(x = Location, y = Salary)) +
+  geom_boxplot() +
+  labs(title = "Salary Distribution by Location", x = "Location", y = "Salary") +
+  theme_minimal()
+
+# Boxplot for AmountSpent by Location
+plot_amount_spent <- ggplot(d_mar, aes(x = Location, y = AmountSpent)) +
+  geom_boxplot() +
+  labs(title = "Amount Spent Distribution by Location", x = "Location", y = "Amount Spent") +
+  theme_minimal()
+
+# Arrange the plots
+grid.arrange(plot_salary, plot_amount_spent, nrow = 2)
+
+```
+
+
+```{r}
+ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = Location)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model trendline
+  scale_color_brewer(palette = "Set1") +    # Color by Location
+  labs(title = 'Location With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent') +
+  theme_minimal()
+
+```
+
+## Summary
+* Most customers are close to the nearest physical store that sells similar products
+* Customers who are close to the nearest physical store selling similar products have lower spend, although their income is higher
+
+## <a id='13'> 4.6 Children </a>
+* How is the Children distribution ?
+
+
+```{r}
+d_mar_Children <- d_mar %>%
+  count(Children) %>%
+  rename(count = n)
+d_mar_Children
+```
+
+
+```{r}
+fig <- plot_ly(d_mar_Children, labels = ~Children, values = ~count, type = 'pie', marker = list(colors = c('darkblue', 'darkcyan', 'CadetBlue', 'DarkSeaGreen'))) %>%
+  layout(title = 'Children Count')
+fig
+```
+
+
+```{r}
+fig <- plot_ly(d_mar_Children, x = ~Children, y = ~count, type = 'scatter', mode = 'markers', marker = list(color = ~count, size = ~count * 0.1, showscale = TRUE)) %>%
+  layout(title = 'Children Distribution', xaxis = list(title = 'Children Count'), yaxis = list(title = 'Number Of Customers'))
+fig
+```
+
+* 46 percent of customers don't have Children
+
+* What are the customers' average income and expenses by Children?
+
+
+```{r}
+# Calculating average salary and amount spent by Children
+d_mar_Children_Salary <- d_mar %>%
+  group_by(Children) %>%
+  summarise(AVG_Salary = round(mean(Salary, na.rm = TRUE), 2))
+
+d_mar_Children_AmountSpent <- d_mar %>%
+  group_by(Children) %>%
+  summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+# Combine the data
+result <- merge(d_mar_Children_Salary, d_mar_Children_AmountSpent, by = "Children")
+
+# Plotting using ggplot2 and gridExtra
+plot_salary <- ggplot(result, aes(x = Children, y = AVG_Salary)) +
+  geom_bar(stat = "identity", aes(fill = Children)) +
+  labs(title = "Children AVG Salary", x = "Number of Children", y = "Average Salary") +
+  theme_minimal()
+
+plot_amount_spent <- ggplot(result, aes(x = Children, y = AVG_AmountSpent)) +
+  geom_bar(stat = "identity", aes(fill = Children)) +
+  labs(title = "Children AVG Amount Spent", x = "Number of Children", y = "Average Amount Spent") +
+  theme_minimal()
+
+# Arrange the plots
+grid.arrange(plot_salary, plot_amount_spent, nrow = 2)
+```
+
+* Although customers' incomes were close, there was a decrease in spending as the number of children increased
+
+
+```{r}
+# Scatter plot with trendline for Salary vs Amount Spent by Children
+ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = as.factor(Children))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model trendline
+  scale_color_brewer(palette = "Set1") +    # Color by number of Children
+  labs(title = 'Children With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent') +
+  theme_minimal()
+```
+
+## Summary
+* 46 percent of customers don't have Children
+* Although customers' incomes were close, there was a decrease in spending as the number of children increased
+
+## <a id='14'> 4.7 History </a>
+* How is the History distribution ?
+
+
+```{r}
+# Calculate average salary and amount spent by History
+d_mar_History_Salary <- d_mar %>%
+  group_by(History) %>%
+  summarise(AVG_Salary = round(mean(Salary, na.rm = TRUE), 2))
+
+d_mar_History_AmountSpent <- d_mar %>%
+  group_by(History) %>%
+  summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+# Combine the data
+result <- merge(d_mar_History_Salary, d_mar_History_AmountSpent, by = "History")
+
+# Plotting using ggplot2 and gridExtra
+plot_salary <- ggplot(result, aes(x = History, y = AVG_Salary, fill = History)) +
+  geom_bar(stat = "identity") +
+  labs(title = "History AVG Salary", x = "History", y = "Average Salary") +
+  theme_minimal()
+
+plot_amount_spent <- ggplot(result, aes(x = History, y = AVG_AmountSpent, fill = History)) +
+  geom_bar(stat = "identity") +
+  labs(title = "History AVG Amount Spent", x = "History", y = "Average Amount Spent") +
+  theme_minimal()
+
+grid.arrange(plot_salary, plot_amount_spent, nrow = 2)
+
+```
+
+* Customers with high previous purchasing volume are the group with the highest income and expenditure
+
+
+```{r}
+# Scatter plot with trendline for Salary vs Amount Spent by History
+ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = History)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model trendline
+  scale_color_brewer(palette = "Set1") +    # Color by History
+  labs(title = 'History With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent') +
+  theme_minimal()
+```
+
+## Summary
+* The highest number of customers who prefer us for the first time
+* Customers with high previous purchasing volume are the group with the highest income and expenditure
+
+## <a id='15'> 4.8 Catalogs </a>
+* How is the Catalogs distribution ?
+
+
+```{r}
+d_mar_Catalogs <- d_mar %>%
+  count(Catalogs) %>%
+  rename(count = n)
+d_mar_Catalogs
+
+```
+
+
+```{r}
+fig <- plot_ly(d_mar_Catalogs, labels = ~Catalogs, values = ~count, type = 'pie', marker = list(colors = c('darkblue', 'darkcyan', 'CadetBlue', 'DarkSeaGreen'))) %>%
+  layout(title = 'Catalogs Count')
+fig
+```
+
+* Catalogs distribution is balanced
+
+
+```{r}
+# Calculating average salary and amount spent by Catalogs
+d_mar_Catalogs_Salary <- d_mar %>%
+  group_by(Catalogs) %>%
+  summarise(AVG_Salary = round(mean(Salary, na.rm = TRUE), 2))
+
+d_mar_Catalogs_AmountSpent <- d_mar %>%
+  group_by(Catalogs) %>%
+  summarise(AVG_AmountSpent = round(mean(AmountSpent, na.rm = TRUE), 2))
+
+# Combine the data
+result <- merge(d_mar_Catalogs_Salary, d_mar_Catalogs_AmountSpent, by = "Catalogs")
+
+# Plotting using ggplot2 and gridExtra
+library(ggplot2)
+library(gridExtra)
+
+plot_salary <- ggplot(result, aes(x = Catalogs, y = AVG_Salary)) +
+  geom_bar(stat = "identity", aes(fill = Catalogs)) +
+  labs(title = "Catalogs AVG Salary", x = "Catalogs", y = "Average Salary") +
+  theme_minimal()
+
+plot_amount_spent <- ggplot(result, aes(x = Catalogs, y = AVG_AmountSpent)) +
+  geom_bar(stat = "identity", aes(fill = Catalogs)) +
+  labs(title = "Catalogs AVG Amount Spent", x = "Catalogs", y = "Average Amount Spent") +
+  theme_minimal()
+
+grid.arrange(plot_salary, plot_amount_spent, nrow = 2)
+
+```
+
+* As the number of catalogs sent increases, so does the expenditure and income
+
+
+```{r}
+ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = as.factor(Catalogs))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +  # Linear model trendline
+  scale_color_brewer(palette = "Set1") +    # Color by Catalogs
+  labs(title = 'Catalogs With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent') +
+  theme_minimal()
+
+```
+
+## Summary
+* Catalogs distribution is balanced
+* As the number of catalogs sent increases, so does the expenditure and income
+
+## <a id='16'> 4.9 AmountSpent </a>
+* How is the AmountSpent distribution ?
+
+
+```{r}
+ggplot(d_mar, aes(x = AmountSpent)) +
+  geom_histogram(binwidth = 200, fill = "red", color = "black") +
+  scale_x_continuous(limits = c(0, 6000), breaks = seq(0, 6000, by = 200)) +
+  labs(title = "Distribution Of Amount Spent", x = "Amount Spent", y = "Counts") +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(d_mar, aes(x = "", y = AmountSpent)) +
+  geom_boxplot(fill = "royalblue", color = "black") +
+  stat_summary(fun.data = "mean_sdl", geom = "errorbar", color = "red", width = 0.5) +
+  labs(title = "Amount Spent Distribution", y = "Amount Spent") +
+  theme_minimal()
+
+```
+
+
+```{r}
+ggplot(d_mar, aes(x = factor(1), y = AmountSpent)) +
+  geom_violin(fill = "lightseagreen", color = "black", alpha = 0.6) +
+  geom_boxplot(width = 0.1, fill = "white", color = "black") +
+  labs(title = "Amount Spent Distribution", y = "Amount Spent") +
+  theme_minimal() +
+  theme(axis.title.x = element_blank(), axis.text.x = element_blank(), axis.ticks.x = element_blank())
+
+```
+
+## Summary
+
+* Amount Spent max:6217
+* Amount Spent mean:1216
+* Amount Spent median:962
+* Amount Spent min:38
+
+## <a id='17'> 4.10 Salary </a>
+* How is the Salary distribution ?
+
+
+```{r}
+ggplot(d_mar, aes(x = Salary)) +
+  geom_histogram(binwidth = 5000, fill = "red", color = "black") +
+  scale_x_continuous(limits = c(0, 150000), breaks = seq(0, 150000, by = 5000)) +
+  labs(title = "Distribution Of Salary", x = "Salary", y = "Counts") +
+  theme_minimal()
+```
+
+
+```{r}
+ggplot(d_mar, aes(x = factor(1), y = Salary)) +
+  geom_boxplot(fill = "royalblue", color = "black") +
+  stat_summary(fun.data = "mean_sdl", geom = "errorbar", color = "red", width = 0.5) +
+  labs(title = "Salary Distribution") +
+  theme_minimal() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+```
+
+
+```{r}
+ggplot(d_mar, aes(x = factor(1), y = Salary)) +
+  geom_violin(fill = "lightseagreen", color = "black", alpha = 0.6) +
+  geom_boxplot(width = 0.1, fill = "white", color = "black") +
+  labs(title = "Salary Distribution") +
+  theme_minimal() +
+  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+```
+
+## Summary
+* Salary max:168.8 k
+* Salary mean:56.1 k 
+* Salary median:53.7 k
+* Salary min:10.1 k
+
+## <a id='20'>5. Data summary </a>
+
+* Data has only object and integer values.
+* Dataset comprises of 1000 observations and 10 characteristics.
+* We don't have duplicated data
+* We have already said in the data set that null values are customers who have not exchanged with us in the past, we do not have missing data.
+* Most of the customers are in the middle age group
+* Middle age group earns more and spends more
+* Gender distribution is balanced
+* Men earn more and spend more
+* The highest number of customers is middle age men
+* Lowest number of customers older men
+* Highest average spending:Male Old 1691
+* Lowest average spending: Female Young 501
+* Highest average Salary:Male Middle 76.3 k
+* Lowest average Salary: Female Young 25.5 k
+* OwnHome distribution is balanced
+* Homeowners earn more and spend more
+* Married distribution is balanced
+* Married people earn more and spend more
+* Most customers are close to the nearest physical store that sells similar products
+* Customers who are close to the nearest physical store selling similar products have lower spend , although their income is higher
+* 46 percent of customers don't have Children
+* Although customers' incomes were close, there was a decrease in spending as the number of children increased
+* The highest number of customers who prefer us for the first time
+* Customers with high previous purchasing volume are the group with the highest income and expenditure
+* Catalogs distribution is balanced
+* As the number of catalogs sent increases, so does the expenditure and income
+
+* Amount Spent max:6217
+* Amount Spent mean:1216
+* Amount Spent median:962
+* Amount Spent min:38
+
+* Salary max:168.8 k
+* Salary mean:56.1 k
+* Salary median:53.7 k
+* Salary min:10.1 k
+
+## <a id='21'> 6. Some regressions </a>
+In this part, we will come back to `d_dimar` dataframe containing 18 columns, and the last 8 columns is used for linear regression. Firstly, we will remind you about `d_dimar` dataframe:
+
+
+
+```{r}
+head(d_dimar)
+```
+
+**Now, let's see again the correlation matrix between quantitative attributes:**
+
+
+```{r}
+# Melt the correlation matrix for ggplot
+melted_corr_matrix <- melt(corr_matrix)
+
+# Create the heatmap plot and assign it to a variable
+heatmap_plot <- ggplot(data = melted_corr_matrix, aes(Var1, Var2, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                       midpoint = 0, limit = c(-1,1), space = "Lab", 
+                       name="Pearson\nCorrelation") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 12, hjust = 1),
+        axis.text.y = element_text(size = 12)) +
+  labs(x = '', y = '', title = 'Correlation Matrix') +
+  geom_text(aes(label = sprintf("%.2f", value)), vjust = 1, size = 3)
+
+# Print the plot with larger dimensions
+print(heatmap_plot)
+
+# Save the plot with larger dimensions
+ggsave("heatmap_plot.png", plot = heatmap_plot, width = 10, height = 8, dpi = 300)
+```
+
+## <a id='22'> 6.1. Simple linear regression </a>
+
+### 6.1.1. AmountSpent ~ Salary
+
+
+```{r}
+par(mfrow=c(2,1))
+plot(density(d_mar$AmountSpent), main="Density-AmountSpent", xlab="Amount Spent")
+plot(density(d_mar$Salary), main="Density-Salary", xlab="Salary")
+```
+
+We would expect a linear relation in Amount spent and Salary of customers. Let us see if it is in fact true.
+
+Now consider the familiar model:
+
+$AmountSpent = \beta_0 + \beta_1 * Salary$
+
+
+```{r}
+fit <- lm(AmountSpent ~ Salary, data = d_dimar)
+summary(fit)
+```
+
+**The intercept could be removed since it is not significant from the test**
+
+
+```{r}
+fit <- lm(AmountSpent ~ 0 + Salary, data = d_dimar)
+summary(fit)
+```
+
+The second model, which forces the line through the origin (no intercept), suggests a stronger relationship between Salary and AmountSpent, evidenced by a higher R-squared value (0.8039 vs. 0.4894). This could indicate that the true relationship may indeed pass through the origin, or it may be an artifact of this particular dataset. However, excluding the intercept can sometimes lead to misleading interpretations, and it's crucial to consider whether it makes theoretical sense for the intercept to be zero in the context of the data.
+
+### 6.1.2. AmountSpent ~ Children
+
+
+```{r}
+# Scatter plot with trendline
+p <- ggplot(d_mar, aes(x = Salary, y = AmountSpent, color = as.factor(Age))) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_color_brewer(palette = "Set1") +
+  labs(title = 'Age With Salary Vs Amount Spent', x = 'Salary', y = 'Amount Spent', color = 'Age')
+
+print(p)
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~ Children, data = d_dimar)
+summary(fit)
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~ 0 + Salary, data = d_dimar)
+summary(fit)
+```
+
+> Model 1, predicting Amount Spent based on the number of Children, has a low R-squared, indicating that Children alone poorly predict spending. 
+
+> Model 2, using Salary without an intercept, shows a much higher R-squared, suggesting Salary is a strong predictor of spending. 
+
+The significant negative coefficient for Children in Model 1 indicates that as the number of children increases, the amount spent decreases. However, the explanatory power of Salary on Amount Spent is far greater than that of the number of Children, as seen in the difference in R-squared values (0.8039 vs. 0.04942).
+
+## <a id='23'> 6.2. Multiple linear regressions </a>
+
+### 6.2.1. AmountSpent ~ History (Medium, High)
+
+First, we will plot the density of amount spent  based on the customer history.
+
+
+```{r}
+ggplot(d_mar, aes(x=AmountSpent)) + geom_density(aes(group=History, fill=History), alpha=.3)
+```
+
+We can observe and infer a couple of things here. Firstly the obvious - customers with a High History tend to spend more and those with a low history tend to spend low. Secondly, the ones whoch we thought did not have a history also have a record of spending some amount. Thus, our assumption is incorrect. However, we will keep Never as a category and build models on it since we do not have any detailed information about the predictor. In a practical scenario, we'd go back and get more information about how this data as classified while storing it.
+
+Next, we'll look at the amount spend based on the age of customers.
+
+
+```{r}
+fit <- lm(AmountSpent ~ Hist_m+Hist_h, data = d_dimar)
+summary(fit)
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~0+ Hist_m+Hist_h, data = d_dimar)
+summary(fit)
+```
+
+Model 1, with an intercept, explains 35% of the variance in Amount Spent using customer history categories (medium and high), but the medium history variable is not a significant predictor. Model 2, without an intercept, attributes all of the Amount Spent variance to history categories and explains a higher variance (58.68%), with both history categories as significant predictors. The higher R-squared in Model 2 suggests that when we force the regression through the origin, the history categories alone account for more of the variance in spending, indicating their strong individual contributions to the model. However, caution is needed as omitting the intercept can lead to misestimation of effects.
+
+### 6.2.2. AmountSpent ~ Age (Young, Middle, Old)
+
+
+```{r}
+ggplot(d_mar, aes(x=AmountSpent)) + geom_density(aes(group=Age, fill=Age), alpha=.3)
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~ Age_m+Age_y, data = d_dimar)
+summary(fit)
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~ 0+ Age_m+Age_y, data = d_dimar)
+summary(fit)
+```
+
+Model 1 indicates that the age category 'young' significantly predicts Amount Spent negatively, while 'middle' age has no significant effect. The model explains 18.97% of the variance in spending. Model 2, without an intercept, finds both age categories to be significant predictors, with 'middle' age having a positive association with spending. This model accounts for a higher variance in spending (51.39%). The absence of an intercept suggests that Age alone is believed to explain all variations in spending, which may not be realistic, but it indicates the strong influence of age categories on spending behavior.
+
+### 6.2.3. AmountSpent ~ Age, Salary, OwnHome, Gender
+
+ The next plot shows the distribution of salaries of customers based on gender and age.
+
+
+```{r}
+ggplot(data=d_mar, aes(x=Age, y=mean(Salary))) + geom_col() + facet_grid(vars(OwnHome), vars(Gender)) +  ylab("Avg. Salary")
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~ Age_m+Age_y + Salary + Ownhome_b + Gender_b , data = d_dimar)
+summary(fit)
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~ 0+ Age_m+Age_y + Salary + Ownhome_b + Gender_b , data = d_dimar)
+summary(fit)
+```
+
+
+Model 1, which includes an intercept, reveals that Age (middle and young) and Salary significantly influence Amount Spent. Owning a home and gender (binary) are not significant predictors. This model explains about 50.33% of the variance in spending. Model 2, without an intercept, suggests a higher explanatory power (80.79%) with all variables directly influencing Amount Spent. However, only Age (middle) and Salary remain significant predictors. The substantial increase in R-squared in Model 2 might be due to the absence of an intercept, forcing the model to attribute all variance to the included predictors, which can lead to overestimation of their effects.
+
+### 6.2.4. AmountSpent ~ All remaining attributes
+
+
+```{r}
+fit <- lm(AmountSpent ~ Married_b+Location_b+Age_m+Age_y + Salary + Ownhome_b + Gender_b + Hist_m + Hist_h + Hist_m , data = d_dimar)
+summary(fit)
+```
+
+
+```{r}
+fit <- lm(AmountSpent ~ 0+ Married_b+Location_b+Age_m+Age_y + Salary + Ownhome_b + Gender_b + Hist_m + Hist_h + Hist_m , data = d_dimar)
+summary(fit)
+```
+
+Model 1, with an intercept, shows that Location, Age, and Salary are significant predictors of Amount Spent, with Location having a notably negative effect. The model explains 61.42% of the variance in spending. In contrast, Model 2, omitting the intercept, attributes more variance (84.36%) to the included predictors and identifies additional significant variables like Ownhome and Gender. The increase in R-squared in Model 2 suggests that when all variance is attributed to the predictors, their effects are overestimated. Model 1's approach is more conservative and potentially more realistic, acknowledging other unaccounted factors influencing spending.
+
+## <a id='30'>7. Conclusion </a>
+- The data is great for linear regression exercises but the encoded attributes is not good enough, and there are some missing values in `History` attributes.
+- Data analysis is the most interesting part when we could get the insights of the data set
+- Some simple resgression are built but the results are quite good.
+- Some machine learning algorithms could be used in further works like: KNN, SVR, Random Forests,...
