@@ -1,10 +1,5 @@
 # Consumer Spending Analysis Project
-## Team Members
-- Trần Minh Quân (20203233)
-- Lê Bá Đức (20203208)
-- Mai Đức Huy (20203217)
-- Giang Thị Thanh Huyền (20223489)
-- Trương Thị Thu Thảo (20223527)
+
 ## Introduction
 The data set includes data from a direct marketer who sells his products only via direct mail. He sends catalogs with product characteristics to customers who then order directly from the catalogs. The marketer has developed customer records to learn what makes some customers spend more than others.
 
