@@ -7,7 +7,7 @@ The objective of this predictive modeling exercise is to predict the amount that
 
 ## Dataset Description
 
-The dataset [DirectMarketing.csv](https://github.com/user/repo/blob/branch/other_file.md) contains 1000 records and 18 attributes. But only the first 10 columns are significant, 8 remaining columns are just one-hot encoded attributes from the first 10 row. As one-hot encoding is only used for linear regression part, so we decided to remove 8 last rows in Exploratory Data Analysis part for better speed.
+The dataset [DirectMarketing.csv](https://www.kaggle.com/datasets/yoghurtpatil/direct-marketing) contains 1000 records and 18 attributes. But only the first 10 columns are significant, 8 remaining columns are just one-hot encoded attributes from the first 10 row. As one-hot encoding is only used for linear regression part, so we decided to remove 8 last rows in Exploratory Data Analysis part for better speed.
 
 ## Conclusion:
 - The data is great for linear regression exercises but the encoded attributes is not good enough, and there are some missing values in `History` attributes.
