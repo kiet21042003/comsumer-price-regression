@@ -1,4 +1,4 @@
-# Consumer Spending Prediction Project
+# Consumer Spending Analysis Project
 ## Team Members
 - Trần Minh Quân (20203233)
 - Lê Bá Đức (20203208)
